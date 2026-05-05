@@ -10,10 +10,13 @@ SHELL:=$(shell which bash)
 ifeq (,$(NOSHORTLOG))
 
 ifeq ($(shell uname -s),Darwin)
-  ifeq (,$(shell which gtime))
+  ifneq (,$(shell which gtime))
+    TIME := gtime -q -f '%E'
+  else ifneq (,$(shell which time))
+    TIME := $(shell which time) -q -f '%E'
+  else
     $(error gtime not found; try brew install gnu-time)
   endif
-  TIME := gtime -q -f '%E'
 else ifeq ($(shell uname -s),FreeBSD)
   TIME := /usr/bin/time
 else
