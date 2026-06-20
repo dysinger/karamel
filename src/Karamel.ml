@@ -255,6 +255,12 @@ Supported options:|}
     "-no-prefix", Arg.String (fun s -> List.iter (prepend Options.no_prefix) (Parsers.drop s)),
       " don't prepend the module name to declarations from module matching this \
       pattern";
+    "-module-alias", Arg.String (fun s ->
+      match String.split_on_char '=' s with
+      | [from; to_] -> Options.module_alias := (from, to_) :: !Options.module_alias
+      | _ -> failwith "-module-alias expects FROM=TO (dotted paths)"),
+      " register module <to> also under name <from>";
+
     "-bundle", Arg.String (fun s -> prepend Options.bundle (Parsers.bundle s)), " \
       group F* modules into a single C translation unit or Rust file (see above)";
     "-crate", Arg.String (fun s -> prepend Options.crates (Parsers.bundle s)), " \
@@ -556,6 +562,24 @@ Supported options:|}
     Yojson.Safe.to_channel stdout (InputAst.binary_format_to_yojson (InputAst.current_version, files));
 
   (* -dast *)
+  (* Apply -module-alias: rename modules in-place (no AST traversal).
+     e.g. Lib.IntTypes.Intrinsics=Hacl.IntTypes.Intrinsics finds
+     Hacl.IntTypes.Intrinsics and renames it to Lib.IntTypes.Intrinsics. *)
+  let files =
+    (let open Options in
+    let aliases = !module_alias in
+    if aliases <> [] then
+      List.map (fun (name_str, decls) ->
+        match List.find_opt (fun (_from_str, to_str) -> to_str = name_str) aliases with
+        | Some (from_str, _to_str) ->
+            if debug "checker" then
+              KPrint.bprintf "module-alias: %s -> %s\n" name_str from_str;
+            (from_str, decls)
+        | None -> (name_str, decls)
+      ) files
+    else
+      files)
+  in
   let files = Builtin.prepare (InputAstToAst.mk_files files) in
   if !arg_print_ast then
     print PrintAst.print_files files;
