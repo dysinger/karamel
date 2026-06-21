@@ -435,7 +435,17 @@ and mk_expr env in_stmt under_initializer_list e =
          scalar type in C that is supported by C's equality comparison. *)
       CStar.Op (K.op_of_poly_comp c)
   | ECast (e, t) ->
-      CStar.Cast (mk_expr env false e, mk_type env t)
+      let t' = mk_type env t in
+      (* At bundle boundaries, TAny inside TBuf produces void** (pointer-to-
+         pointer-to-void) which is incorrect for byte buffers. Normalize
+         void** -> uint8_t* in cast targets. Both FStar.UInt8.t and
+         Lib.IntTypes.uint8 map to uint8_t; KaRaMeL just can't see the
+         equivalence across bundles. *)
+      let t' = match t' with
+        | CStar.Pointer (CStar.Pointer CStar.Void) -> CStar.Pointer (CStar.Int Constant.UInt8)
+        | _ -> t'
+      in
+      CStar.Cast (mk_expr env false e, t')
   | EAbort (t, s) ->
       let t = match t with Some t -> t | None -> e.typ in
       CStar.EAbort (mk_type env t, Option.value ~default:"" s)
