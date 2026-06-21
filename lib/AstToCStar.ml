@@ -823,9 +823,19 @@ and mk_return_type env = function
   | TArray (t, k) ->
       CStar.Array (mk_type env t, Some (CStar.Constant k))
   | TBuf (t, true) ->
-      CStar.(Pointer (Const (mk_type env t)))
+      let t' = mk_type env t in
+      let t' = match t' with
+        | CStar.Pointer CStar.Void -> CStar.Int Constant.UInt8
+        | _ -> t'
+      in
+      CStar.(Pointer (Const t'))
   | TBuf (t, false) ->
-      CStar.Pointer (mk_type env t)
+      let t' = mk_type env t in
+      let t' = match t' with
+        | CStar.Pointer CStar.Void -> CStar.Int Constant.UInt8
+        | _ -> t'
+      in
+      CStar.Pointer t'
   | TUnit ->
       CStar.Void
   | TQualified name ->
